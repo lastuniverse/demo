@@ -2,6 +2,6 @@
 
 git add .
 
-git commit -m "autopush: $1"
+git commit -m "autopush: $*"
 
 git push -u origin master
