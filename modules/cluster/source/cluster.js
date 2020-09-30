@@ -15,25 +15,21 @@ class Cluster extends Emitter {
         this.isMaster = tools.isMaster();
         this.workers = {};
 
-        // console.log(tools.isMaster(), '[0,6]');
         this.server = new network.Server(); // =[0,6]=
 
         this.server.on('network.ready', () => { // =[0,6]=
-            // console.log(tools.isMaster(), '[1]');
             this.fork(process.pid); // =[1]=
 
 
         });
 
         this.server.once('service.connect.to.parent', (pid) => { // =[9]=
-            // console.log(tools.isMaster(), '[9,10]', pid);
             this.master = this.fork(pid); // =[10]=
 
 
         });
 
         this.server.on('service.update.pids', (pids) => { // =[17]=
-            // console.log(tools.isMaster(), '[17,18]', pids);
             pids.forEach((pid) => {
 
                 if (this.workers[pid]) return;
@@ -100,47 +96,43 @@ class Cluster extends Emitter {
         worker.__broadcast = this.broadcast.bind(this); // ээх, не удержался))))
 
 
-        const wait = (pid) => {
-
-            // console.log(tools.isMaster(), '[15]', pid, process.pid, worker.pid);
-            if (pid != worker.pid) return;
-            if (this.isReady) {
+        const clusterReady = ()=>{
                 this.workers[worker.pid] = worker; // =[15]=
                 worker.emit('worker.ready', worker);
                 this.server.removeListener('service.ready', wait);
-                this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
-            } else {
-                this.on('cluster.ready', () => {
-                    this.workers[worker.pid] = worker; // =[15]=
-                    worker.emit('worker.ready', worker);
-                    this.server.removeListener('service.ready', wait);
-                    this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
-                });
-            }
-            // console.log(tools.isMaster(), '[16]');
+                this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=            
+        }
 
+        const wait = (pid) => {
+
+            if (pid != worker.pid) return;
+
+            if (this.isReady) return clusterReady();
+             this.on('cluster.ready', clusterReady );
 
         };
         this.server.on('service.ready', wait); // =[15]=
 
+        const isAllWorkerReady = ()=>this.getWorkers().every(worker=>worker.isReady)
 
-        worker.once('service.ready', (pid) => {
-            console.log(tools.isMaster(), '[4,13,21]', pid, process.pid);
+        const waitWorker = () => {
+            worker.once('service.ready', (pid) => {
+                if(!isAllWorkerReady()) waitWorker();
+                console.log(tools.isMaster(), '[4,13,21]', pid, process.pid);
 
+                this.workers[worker.pid] = worker; // =[4,13,21]=
+                if (!this.isReady) {
+                    this.isReady = true;
+                    this.emit('cluster.ready');
+                    if (this.isMaster) this.emit('cluster.isMaster');
+                }
+                worker.emit('worker.ready', worker);
 
-            this.workers[worker.pid] = worker; // =[4,13,21]=
+            });
+        }
 
-            if (!this.isReady) {
-                this.isReady = true;
-                this.emit('cluster.ready');
-                if (this.isMaster) this.emit('cluster.isMaster');
-            }
+        waitWorker();
 
-
-
-            worker.emit('worker.ready', worker);
-
-        });
 
         return worker;
 
