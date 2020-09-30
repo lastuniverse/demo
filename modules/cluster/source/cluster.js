@@ -63,6 +63,13 @@ class Cluster extends Emitter {
             this.master = this.workers[pid];
             this.emit('cluster.setmaster',pid);
         });
+
+        // если CTRL+C - завершаем все процессы
+        process.on('SIGINT',()=>{
+            if(this.isMaster) this.getWorkers().forEach(worker=>{
+                if( process.pid != worker.pid )   worker.kill()
+            });
+        });
         
 
     }
@@ -78,6 +85,10 @@ class Cluster extends Emitter {
     fork(pid) {
 
         const worker = new Worker(pid);
+
+
+        worker.__broadcast = this.broadcast.bind(this); // ээх, не удержался))))
+
 
         const wait = (pid) => {
 

@@ -15,15 +15,15 @@ if (cluster.isMaster) {
 	worker1.on('worker.ready', () => {
 		console.log('MASTER. worker1.ready');
 		setTimeout(()=>{
-			cluster.kill(worker1.pid);
+//			cluster.kill(worker1.pid);
 		},2000)
 	});
 
 	worker2.on('worker.ready', () => {
 		console.log('MASTER. worker2.ready');
 		setTimeout(()=>{
-			cluster.setAsMaster(worker2.pid);
-		},2000)
+//			cluster.setAsMaster(worker2.pid);
+		},4000)
 	});
 
 

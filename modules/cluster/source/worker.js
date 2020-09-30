@@ -58,6 +58,24 @@ class Worker extends Emitter {
     send(eventName, ...data) {
         this.client.send(eventName, ...data);
     }
+
+    /**
+     * Отправить процессу сигнал signal.
+     *
+     * @param      {string}  [signal='SIGINT']  Отправляемый сигнал (SIGINT или SIGTERM)
+     */
+    kill(signal = 'SIGINT') {
+        this.__broadcast('service.signal', this.pid, signal);
+    }
+
+    /**
+     * Назначить процесс pid мастером
+     *
+     * @param      {string|number}  pid         ID процесса
+     */
+    setAsMaster() {
+        this.__broadcast('service.set.as.master', this.pid);
+    }    
 }
 
 exports = module.exports = Worker;
