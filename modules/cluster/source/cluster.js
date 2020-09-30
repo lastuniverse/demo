@@ -43,44 +43,44 @@ class Cluster extends Emitter {
             });
         });
 
-        this.server.on('service.signal', (pid,signal) => { 
-            console.log('kill', process.pid,pid,signal);
-            if(process.pid==pid){
+        this.server.on('service.signal', (pid, signal) => {
+            console.log('kill', process.pid, pid, signal);
+            if (process.pid == pid) {
                 this.workers[pid].emit('worker.stop');
                 this.emit('cluster.stop');
                 process.kill(process.pid, signal);
-            }else{
+            } else {
                 this.workers[pid].emit('worker.stop');
                 this.workers[pid].client.emit('network.end');
                 delete this.workers[pid];
             }
-            
+
         });
 
-        this.server.on('service.set.as.master', (pid) => { 
-            if(process.pid==pid){
-                this.isMaster=true;
+        this.server.on('service.set.as.master', (pid) => {
+            if (process.pid == pid) {
+                this.isMaster = true;
                 this.emit('cluster.isMaster');
-            }else{
-                this.isMaster=false
+            } else {
+                this.isMaster = false
             }
             this.master = this.workers[pid];
-            this.emit('cluster.setmaster',pid);
+            this.emit('cluster.setmaster', pid);
         });
 
         // если CTRL+C - завершаем все процессы
-        process.on('SIGINT',()=>{
-            if(this.isMaster) this.getWorkers().forEach(worker=>{
-                if( process.pid == worker.pid ){
+        process.on('SIGINT', () => {
+            if (this.isMaster) this.getWorkers().forEach(worker => {
+                if (process.pid == worker.pid) {
                     worker.emit('worker.stop');
                     this.emit('cluster.stop');
-                }else{
+                } else {
                     worker.kill();
 
                 }
             });
         });
-        
+
 
     }
 
@@ -104,16 +104,24 @@ class Cluster extends Emitter {
 
             // console.log(tools.isMaster(), '[15]', pid, process.pid, worker.pid);
             if (pid != worker.pid) return;
-            this.workers[worker.pid] = worker; // =[15]=
-            worker.emit('worker.ready', worker);
-            this.server.removeListener('service.ready', wait);
+            if (this.isReady) {
+                this.workers[worker.pid] = worker; // =[15]=
+                worker.emit('worker.ready', worker);
+                this.server.removeListener('service.ready', wait);
+                this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
+            } else {
+                this.on('cluster.ready', () => {
+                    this.workers[worker.pid] = worker; // =[15]=
+                    worker.emit('worker.ready', worker);
+                    this.server.removeListener('service.ready', wait);
+                    this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
+                });
+            }
             // console.log(tools.isMaster(), '[16]');
-            this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
 
 
         };
         this.server.on('service.ready', wait); // =[15]=
-
 
 
         worker.once('service.ready', (pid) => {
@@ -121,13 +129,14 @@ class Cluster extends Emitter {
 
 
             this.workers[worker.pid] = worker; // =[4,13,21]=
-            
-            if(!this.isReady){
+
+            if (!this.isReady) {
+                this.isReady = true;
                 this.emit('cluster.ready');
-                if(this.isMaster) this.emit('cluster.isMaster');
+                if (this.isMaster) this.emit('cluster.isMaster');
             }
-            this.isReady = true;
-            
+
+
 
             worker.emit('worker.ready', worker);
 
@@ -169,7 +178,9 @@ class Cluster extends Emitter {
      * @param      {string}  [signal='SIGINT']  Отправляемый сигнал (SIGINT или SIGTERM)
      */
     kill(pid, signal = 'SIGINT') {
-        this.broadcast('service.signal', pid, signal);
+        setTimeout(() => {
+            this.broadcast('service.signal', pid, signal);
+        }, 2000);
     }
 
     /**
@@ -178,7 +189,7 @@ class Cluster extends Emitter {
      * @param      {string|number}  pid         ID процесса
      */
     setAsMaster(pid) {
-        if( !this.workers[pid] ) return
+        if (!this.workers[pid]) return
         this.broadcast('service.set.as.master', pid);
     }
 };

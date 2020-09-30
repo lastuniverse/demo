@@ -34,9 +34,11 @@ class Worker extends Emitter {
         this.client.once('network.ready', () => { // =[2,7,11,19]=
             // console.log(tools.isMaster(), '[2,7,11,19] (', pid, '|', process.pid, '|', this.pid, ')');
             if (pid == process.pid) {
+                this.isReady=true;
                 // console.log(tools.isMaster(), '[3]');
                 this.emit('service.ready'); // =[3]=
             } else if (pid) {
+                this.isReady=true;
                 // console.log(tools.isMaster(), '[12,20]');
                 this.emit('service.ready'); // =[12,20]=
                 // console.log(tools.isMaster(), '[14]');
