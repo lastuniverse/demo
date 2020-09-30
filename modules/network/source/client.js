@@ -1,66 +1,85 @@
 const net = require('net');
 const Emitter = require('events');
 const tools = require('./tools.js');
-const uuidv4 = require('../../tools/uuidv4.js');
 
 
+/**
+ * Реализация минимального сетевого клиента, 
+ *
+ * @class      Client (name)
+ */
 class Client extends Emitter {
 
-	constructor(pid) {
-		try {
-			super();
+    /**
+     * @param      {string||nimber}  pid     ID процесса, к которому необходимо подключится
+     */
+    constructor(pid) {
 
-			this.pid = pid;
+        super();
 
-			this.connect();
+        this.pid = pid;
 
-		} catch (e) {
-			console.log(e)
-		}
-	}
+        this.connect();
 
-	connect() {
-		try {
+        this.isStoped=false;
 
-			this.socket = net.createConnection({
-				path: tools.socketFileNameByPid(this.pid)
-			}, () => {
-				console.log('Process', process.pid, 'connected to server', this.pid);
-				this.emit('network.ready', {
-					from: process.pid,
-					to: this.pid,
-					// client: this
-				});
-			});
+        this.on('network.end',()=>{
+            this.stop();
+        });
 
+    }
+    stop(){
+        console.log('network.end', this.isStoped );
+        this.isStoped = true;
+        console.log('network.end', this.isStoped );
+        this.socket.end();        
+    }
 
-			this.socket.on('end', () => {
-				console.log('Process', process.pid, 'disconnected from server', this.pid);
-			});
+    /**
+     * Подключается к серверу и устанавливает минимум необходимых обработчиков событий
+     */
+    connect() {
+        if( this.isStoped ) return;
+        console.log('network.end', this.isStoped );
 
-			this.socket.on('error', () => {
-				setTimeout(() => {
-					this.connect(this.pid);
-				}, 1000)
-			});
-		} catch (e) {
-			console.log(e);
-		}
-	}
+        this.socket = net.createConnection({
+            path: tools.socketFileNameByPid(this.pid)
+        }, () => {
+            console.log('Process', process.pid, 'connected to server', this.pid);
+            this.emit('network.ready', {
+                from: process.pid,
+                to: this.pid,
+                // client: this
+            });
+        });
 
-	send(eventName,data) {
-		try {
-			this.socket.write(JSON.stringify({
-			from: process.pid,
-			to: this.pid,
-			messageId: uuidv4(),
-			eventName:eventName,
-			data: data	
-			}) + '\r\n');
-		} catch (e) {
-			console.log(e)
-		}
-	}
+        this.socket.on('end', () => {
+            console.log('Process', process.pid, 'disconnected from server', this.pid);
+        });
+
+        this.socket.on('error', () => {
+            console.log('Process', process.pid, 'error connect to server', this.pid);
+            setTimeout(() => {
+                
+                this.connect(this.pid);
+            }, 1000)
+        });
+    }
+
+    /**
+     * производит отправку события(сообщения)
+     *
+     * @param      {string}  eventName  имя события (обработчики события с этим именем будут вызваны на стороне сервера)
+     * @param      {boolean|number|string|array|object}  data       передаваемые обработчику данные
+     */
+    send(eventName, ...data) {
+        this.socket.write(JSON.stringify({
+            from: process.pid,
+            to: this.pid,
+            eventName: eventName,
+            data: data
+        }) + '\r\n');
+    }
 }
 
 
