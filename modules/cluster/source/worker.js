@@ -22,7 +22,6 @@ class Worker extends Emitter {
             this.process = process;
 
         } else {
-            // console.log(tools.isMaster(), '[5]');
             this.process = tools.fork(); // =[5]=
             this.pid = this.process.pid;
         }
@@ -32,20 +31,14 @@ class Worker extends Emitter {
 
         // подключились к IPC серверу процесса
         this.client.once('network.ready', () => { // =[2,7,11,19]=
-            // console.log(tools.isMaster(), '[2,7,11,19] (', pid, '|', process.pid, '|', this.pid, ')');
-            if (pid == process.pid) {
-                this.isReady=true;
-                // console.log(tools.isMaster(), '[3]');
+            this.isReady=true;
+            
+            setTimeout(()=>{
                 this.emit('service.ready'); // =[3]=
-            } else if (pid) {
-                this.isReady=true;
-                // console.log(tools.isMaster(), '[12,20]');
-                this.emit('service.ready'); // =[12,20]=
-                // console.log(tools.isMaster(), '[14]');
-                this.send('service.ready', process.pid); // =[14]=
-            } else {
+            },1000);
+
+            if (!pid) {
                 // говорим поцессу на который ссылается воркер подключится к текущему процессу
-                // console.log(tools.isMaster(), '[8]');
                 this.send('service.connect.to.parent', process.pid); // =[8]=
             }
         });

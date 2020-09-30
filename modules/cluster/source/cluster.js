@@ -17,18 +17,17 @@ class Cluster extends Emitter {
 
         this.server = new network.Server(); // =[0,6]=
 
+        // запущен сервер
         this.server.on('network.ready', () => { // =[0,6]=
             this.fork(process.pid); // =[1]=
-
-
         });
 
+        // команда на подключение к форкаюшему процессу
         this.server.once('service.connect.to.parent', (pid) => { // =[9]=
             this.master = this.fork(pid); // =[10]=
-
-
         });
 
+        // обновляем воркеры
         this.server.on('service.update.pids', (pids) => { // =[17]=
             pids.forEach((pid) => {
 
@@ -39,13 +38,17 @@ class Cluster extends Emitter {
             });
         });
 
+        // какойто из процессов был убит
         this.server.on('service.signal', (pid, signal) => {
-            console.log('kill', process.pid, pid, signal);
             if (process.pid == pid) {
+                console.log('kill ДА', process.pid, pid, signal);
+                this.isKilled = true;
                 this.workers[pid].emit('worker.stop');
                 this.emit('cluster.stop');
+                // process.exit();
                 process.kill(process.pid, signal);
-            } else {
+            } else if (this.workers[pid]) {
+                console.log('kill НЕТ', process.pid, pid, signal);
                 this.workers[pid].emit('worker.stop');
                 this.workers[pid].client.emit('network.end');
                 delete this.workers[pid];
@@ -53,28 +56,27 @@ class Cluster extends Emitter {
 
         });
 
+        // установлен новый мастер
         this.server.on('service.set.as.master', (pid) => {
             if (process.pid == pid) {
                 this.isMaster = true;
                 this.emit('cluster.isMaster');
-            } else {
+            } else if (this.workers[pid]) {
                 this.isMaster = false
             }
             this.master = this.workers[pid];
             this.emit('cluster.setmaster', pid);
         });
 
-        // если CTRL+C - завершаем все процессы
-        process.on('SIGINT', () => {
-            if (this.isMaster) this.getWorkers().forEach(worker => {
-                if (process.pid == worker.pid) {
-                    worker.emit('worker.stop');
-                    this.emit('cluster.stop');
-                } else {
-                    worker.kill();
 
-                }
-            });
+        // отлавливаю CTRL+C - завершаем все процессы
+        process.on('SIGINT', () => {
+            // если SIGINT пришел НЕ с клавиатуры то this.isKilled==true
+            if (!this.isKilled) {
+                this.getWorkers().forEach(worker => {
+                    worker.kill();
+                });                
+            }
         });
 
 
@@ -90,49 +92,40 @@ class Cluster extends Emitter {
      */
     fork(pid) {
 
-        const worker = new Worker(pid);
+        if(!pid && !this.isMaster) return console.warn('создавать дочерние процессы разрешено только мастерпроцессу');
 
+
+        const worker = new Worker(pid);
+        this.workers[worker.pid] = worker;
 
         worker.__broadcast = this.broadcast.bind(this); // ээх, не удержался))))
 
 
-        const clusterReady = ()=>{
-                this.workers[worker.pid] = worker; // =[15]=
-                worker.emit('worker.ready', worker);
-                this.server.removeListener('service.ready', wait);
-                this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=            
-        }
 
-        const wait = (pid) => {
-
-            if (pid != worker.pid) return;
-
-            if (this.isReady) return clusterReady();
-             this.on('cluster.ready', clusterReady );
-
-        };
-        this.server.on('service.ready', wait); // =[15]=
-
-        const isAllWorkerReady = ()=>this.getWorkers().every(worker=>worker.isReady)
+        const isAllWorkerReady = () => this.getWorkers().every(worker => worker.isReady)
 
         const waitWorker = () => {
             worker.once('service.ready', (pid) => {
-                if(!isAllWorkerReady()) waitWorker();
-                console.log(tools.isMaster(), '[4,13,21]', pid, process.pid);
+                if (!isAllWorkerReady()) waitWorker();
 
-                this.workers[worker.pid] = worker; // =[4,13,21]=
                 if (!this.isReady) {
                     this.isReady = true;
                     this.emit('cluster.ready');
                     if (this.isMaster) this.emit('cluster.isMaster');
                 }
-                worker.emit('worker.ready', worker);
 
+                worker.emit('worker.ready', worker);
             });
         }
 
+        // ждем готовности всех запущенных воркеров
         waitWorker();
 
+        // ждем готовности кластера
+        this.once('cluster.ready', () => {
+            worker.emit('worker.ready', worker);
+            this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=            
+        });
 
         return worker;
 
@@ -160,7 +153,7 @@ class Cluster extends Emitter {
      * @return     {Array[Worker]}  массив действующих воркеров
      */
     getWorkers() {
-        return Object.values(this.workers);
+        return Object.values(this.workers).filter(worker => worker.isReady);
     }
 
     /**
@@ -170,9 +163,7 @@ class Cluster extends Emitter {
      * @param      {string}  [signal='SIGINT']  Отправляемый сигнал (SIGINT или SIGTERM)
      */
     kill(pid, signal = 'SIGINT') {
-        setTimeout(() => {
-            this.broadcast('service.signal', pid, signal);
-        }, 2000);
+        this.broadcast('service.signal', pid, signal);
     }
 
     /**
