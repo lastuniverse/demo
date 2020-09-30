@@ -1,0 +1,12 @@
+{
+  "name": "queue",
+  "version": "1.0.0",
+  "description": "The module implements a class for managing the data queue for processing",
+  "main": "queue.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["queue","data processing"],
+  "author": "lastuniverse@github.com",
+  "license": "ISC"
+}

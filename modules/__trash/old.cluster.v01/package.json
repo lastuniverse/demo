@@ -1,8 +1,8 @@
 {
-  "name": "uuidv4",
+  "name": "cluster",
   "version": "1.0.0",
   "description": "",
-  "main": "uuidv4.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

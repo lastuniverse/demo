@@ -1,70 +1,69 @@
-const os = require('os');
-//const cpus = os.cpus().length
 const Emitter = require('events');
+const network = require('../../network');
+const Worker = require('./worker');
+const tools = require('./tools.js');
 
-
-const Worker = require('./worker.js');
-const Network = require('../../network');
-
-const serviceListeners = {
-
-	'cluster.worker.add': function(message) {
-		message.data.forEach(pid=>{
-			this.registerWorker(pid);
-		});
-	},
-
-};
-
-/**
- * реализовал подобие необходимой части API по образцу https://nodejs.org/api/cluster.html
- */
 class Cluster extends Emitter {
 
 	constructor() {
-		try {
-			super();
+		super();
+		this.isMaster = tools.isMaster();
+		this.workers = {};
 
-			this.network = new Network();
+		this.server = new network.Server(); // =[0,6]=
+console.log(tools.isMaster(),'=[0, 6]=');
+		this.server.on('network.ready', () => { // =[0,6]=
+console.log(tools.isMaster(),'=[1]=');
+			this.fork(process.pid); // =[1]=
+		});
 
-			if (process.argv[2] == 'child') {
-				this.isWorker = true;
-			} else {
-				this.isMaster = true;
-			}
+		this.server.once('service.connect.to.parent', (pid) => { // =[9]=
+console.log(tools.isMaster(),'=[9,10]=');
+			this.fork(process.pid); // =[10]=
+		});
 
-			this.id = process.pid;
-
-			this.workers = {};
-
-			this.setupMaster();
-
-
-			this.listeners = Object.keys(serviceListeners).reduce((acc, eventName) => {
-
-				const listener = serviceListeners[eventName].bind(this);
-
-				this.network.on(eventName, listener);
-
-				acc[eventName] = listener;
-
-				return acc;
-			}, {});
-
-			this.network.startServer(() => {
-
-				if (this.isWorker) process.send("ready");
+		this.server.on('service.update.pids', (pids) => { // =[17]=
+console.log(tools.isMaster(),'=[17]=');
+			pids.forEach((pid) => {
+				if (this.workers[pid]) return;
+				this.fork(pid); // =[18]=
 			});
-
-
-		} catch (e) {
-			console.error(e)
-		}
+		});
 	}
 
 
-	getWorkers() {
+	fork(pid) {
+		const worker = new Worker(pid);
 
+		const wait = (pid) => {
+			if (pid != worker.pid) return;
+console.log(tools.isMaster(),'=[15,16]=')
+			this.workers[worker.pid] = worker; // =[15]=
+			worker.emit('worker.ready',worker);
+			this.server.removeListener('service.ready', wait);
+			this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
+		};
+		this.server.on('service.ready', wait); // =[15]=
+
+
+
+		worker.once('service.ready', (pid) => {
+console.log(tools.isMaster(),'=[4,13,21]=');
+			this.workers[worker.pid] = worker; // =[4,13,21]=
+			this.emit('cluster.ready');
+			worker.emit('worker.ready',worker);
+		});
+
+		return worker;
+	}
+
+	broadcast(eventName, data) {
+		this.getWorkers().forEach(worker => {
+			//worker.send(eventName, data);
+		})
+	}
+
+	getWorkers() {
 		return Object.values(this.workers);
 	}
 
@@ -75,82 +74,8 @@ class Cluster extends Emitter {
 			console.error(e)
 		}
 	}
-
-
-	setupMaster(settings = {}) {
-		try {
-			this.settings = {
-				// execArgv: settings.execArgv || process.execArgv,
-				exec: settings.exec || process.argv[1],
-				args: settings.args || process.argv.slice(2),
-				silent: settings.silent || false
-			};
-		} catch (e) {
-			console.error(e)
-		}
-	}
-
-	registerWorker(pid, worker) {
-		
-		try {
-
-			if(!worker) worker = new Worker(pid);
-
-			if (worker.id == process.pid) return;
-
-			if (this.getWorkerByID(worker.id)) return;
-			this.network.connectToNode(worker.id, node=>{
-	
-				worker.setIPC(node);
-
-				this.workers[pid] = worker;
-			});
-
-			return worker;
-
-		} catch (e) {
-			console.error(e)
-		}
-	}
-
-	fork() {
-		if (this.isWorker) throw ('Метод .fork() может быть вызван только из главного просесса');
-
-		const worker = new Worker();
-
-		worker.create(this.settings, () => {
-			try {
-
-				this.registerWorker(worker.id, worker);
-
-				worker.send("cluster.worker.add", [this.id, ...Object.keys(this.workers)]);
-
-				this.broadcast("cluster.worker.add", [worker.id]);
-			} catch (e) {
-				console.error(e)
-			}
-
-		});
-
-
-
-		return worker;
-
-
-	}
-
-	broadcast(eventName, data, cb) {
-		this.getWorkers().forEach(worker=>{
-			worker.send("cluster.worker.add", data, cb);
-		})
-	}
-
-
 };
 
 
 
 exports = module.exports = Cluster;
-
-
-
