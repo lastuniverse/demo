@@ -52,7 +52,18 @@ class Cluster extends Emitter {
                 delete this.workers[pid];
             }
             
-        })     
+        });
+
+        this.server.on('service.set.as.master', (pid) => { 
+            if(process.pid==pid){
+                this.isMaster=true;
+            }else{
+                this.isMaster=false
+            }
+            this.master = this.workers[pid];
+            this.emit('cluster.setmaster',pid);
+        });
+        
 
     }
 
@@ -108,8 +119,9 @@ class Cluster extends Emitter {
         this.broadcast('service.signal', pid, signal);
     }
 
-    setAsMaster() {
-        this.send('service.set.as.master', signal);
+    setAsMaster(pid) {
+        if( !this.workers[pid] ) return
+        this.broadcast('service.set.as.master', pid);
     }
 };
 

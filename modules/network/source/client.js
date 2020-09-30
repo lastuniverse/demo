@@ -19,28 +19,20 @@ class Client extends Emitter {
 
         this.pid = pid;
 
-        this.connect();
-
-        this.isStoped=false;
-
         this.on('network.end',()=>{
-            this.stop();
+            this.socket.end();
+            this.socket.destroy();
         });
 
+        this.connect();
+
     }
-    stop(){
-        console.log('network.end', this.isStoped );
-        this.isStoped = true;
-        console.log('network.end', this.isStoped );
-        this.socket.end();        
-    }
+
 
     /**
      * Подключается к серверу и устанавливает минимум необходимых обработчиков событий
      */
     connect() {
-        if( this.isStoped ) return;
-        console.log('network.end', this.isStoped );
 
         this.socket = net.createConnection({
             path: tools.socketFileNameByPid(this.pid)
@@ -49,7 +41,6 @@ class Client extends Emitter {
             this.emit('network.ready', {
                 from: process.pid,
                 to: this.pid,
-                // client: this
             });
         });
 
@@ -59,11 +50,13 @@ class Client extends Emitter {
 
         this.socket.on('error', () => {
             console.log('Process', process.pid, 'error connect to server', this.pid);
+            
+            this.socket.destroy();
             setTimeout(() => {
-                
                 this.connect(this.pid);
             }, 1000)
         });
+
     }
 
     /**
