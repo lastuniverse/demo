@@ -60,6 +60,7 @@ class Cluster extends Emitter {
         this.server.on('service.set.as.master', (pid) => { 
             if(process.pid==pid){
                 this.isMaster=true;
+                this.emit('cluster.isMaster');
             }else{
                 this.isMaster=false
             }
@@ -104,7 +105,7 @@ class Cluster extends Emitter {
             // console.log(tools.isMaster(), '[15]', pid, process.pid, worker.pid);
             if (pid != worker.pid) return;
             this.workers[worker.pid] = worker; // =[15]=
-            worker.emit('', worker);
+            worker.emit('worker.ready', worker);
             this.server.removeListener('service.ready', wait);
             // console.log(tools.isMaster(), '[16]');
             this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
@@ -120,8 +121,13 @@ class Cluster extends Emitter {
 
 
             this.workers[worker.pid] = worker; // =[4,13,21]=
-            this.emit('cluster.ready');
-            this.emit('cluster.isMaster');
+            
+            if(!this.isReady){
+                this.emit('cluster.ready');
+                if(this.isMaster) this.emit('cluster.isMaster');
+            }
+            this.isReady = true;
+            
 
             worker.emit('worker.ready', worker);
 
