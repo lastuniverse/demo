@@ -46,8 +46,11 @@ class Cluster extends Emitter {
         this.server.on('service.signal', (pid,signal) => { 
             console.log('kill', process.pid,pid,signal);
             if(process.pid==pid){
+                this.workers[pid].emit('worker.stop');
+                this.emit('cluster.stop');
                 process.kill(process.pid, signal);
             }else{
+                this.workers[pid].emit('worker.stop');
                 this.workers[pid].client.emit('network.end');
                 delete this.workers[pid];
             }
@@ -67,7 +70,13 @@ class Cluster extends Emitter {
         // если CTRL+C - завершаем все процессы
         process.on('SIGINT',()=>{
             if(this.isMaster) this.getWorkers().forEach(worker=>{
-                if( process.pid != worker.pid )   worker.kill()
+                if( process.pid == worker.pid ){
+                    worker.emit('worker.stop');
+                    this.emit('cluster.stop');
+                }else{
+                    worker.kill();
+
+                }
             });
         });
         
@@ -95,7 +104,7 @@ class Cluster extends Emitter {
             // console.log(tools.isMaster(), '[15]', pid, process.pid, worker.pid);
             if (pid != worker.pid) return;
             this.workers[worker.pid] = worker; // =[15]=
-            worker.emit('worker.ready', worker);
+            worker.emit('', worker);
             this.server.removeListener('service.ready', wait);
             // console.log(tools.isMaster(), '[16]');
             this.broadcast('service.update.pids', Object.keys(this.workers)); // =[16]=
@@ -107,11 +116,13 @@ class Cluster extends Emitter {
 
 
         worker.once('service.ready', (pid) => {
-            // console.log(tools.isMaster(), '[4,13,21]', pid, process.pid);
+            console.log(tools.isMaster(), '[4,13,21]', pid, process.pid);
 
 
             this.workers[worker.pid] = worker; // =[4,13,21]=
             this.emit('cluster.ready');
+            this.emit('cluster.isMaster');
+
             worker.emit('worker.ready', worker);
 
         });
