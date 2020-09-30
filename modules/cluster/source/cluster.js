@@ -67,7 +67,14 @@ class Cluster extends Emitter {
 
     }
 
-
+    /**
+     * создает объект worker являющийся интерфейсом управления процессом.
+     * worker подключающийся к процессу с заданным pid через сокет типа UNIX домен.
+     * если pid не задан, создается новый процесс после чего worker подключается к нему.
+     *
+     * @param      {string|number}  pid     ID существующего процесса имеющего инстанс класса Cluster
+     * @return     {Worker}  инстанс класса Worker, подключенный к управляемому процессу
+     */
     fork(pid) {
 
         const worker = new Worker(pid);
@@ -102,6 +109,14 @@ class Cluster extends Emitter {
 
     }
 
+    /**
+     * 
+     *
+     * @param      {string}  eventName  имя события. Одноименный обработчик будет вызван на принимающей стороне
+     * @param      {Array}   data       любое количество передаваемых параметров.
+     *                                  каждый из параметров должен соответсвовать условию: 
+     *                                  проходить процедуру JSON.parse(JSON.stringify(param)) без потери данных и ошибок
+     */
     broadcast(eventName, ...data) {
 
         this.getWorkers().forEach(worker => {
@@ -110,15 +125,30 @@ class Cluster extends Emitter {
 
     }
 
+    /**
+     * выдает массив с действующими (находящимися в состоянии 'worker.ready') воркерами
+     *
+     * @return     {Array[Worker]}  массив действующих воркеров
+     */
     getWorkers() {
         return Object.values(this.workers);
     }
 
-
+    /**
+     * Отправить процессу pid сигнал signal.
+     *
+     * @param      {string|number}  pid         ID процесса
+     * @param      {string}  [signal='SIGINT']  Отправляемый сигнал (SIGINT или SIGTERM)
+     */
     kill(pid, signal = 'SIGINT') {
         this.broadcast('service.signal', pid, signal);
     }
 
+    /**
+     * Назначить процесс pid мастером
+     *
+     * @param      {string|number}  pid         ID процесса
+     */
     setAsMaster(pid) {
         if( !this.workers[pid] ) return
         this.broadcast('service.set.as.master', pid);

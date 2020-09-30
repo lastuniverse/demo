@@ -1,6 +1,7 @@
 const net = require('net');
 const Emitter = require('events');
 const tools = require('./tools.js');
+const processEvents = require('../../tools/process-events.js');
 
 /**
  * Реализация минимального сервера
@@ -53,6 +54,10 @@ class Server extends Emitter {
 
             console.log('Process', process.pid, 'opened server on', this.server.address());
             this.emit('network.ready');
+        });
+
+        processEvents.on('beforeExit', ()=>{
+            this.server.close();
         });
 
     }
