@@ -1,48 +1,82 @@
-const Cluster = require('./modules/cluster')
+// подключаем дополнительный модуль работающий с путями
+const path = require('path');
+// подключаем express
+const express = require('express');
+// подключаем дополнительный модуль устанавливающий безопасные настройки express-а
+const helmet = require('helmet');
+
+const Cluster = require('./modules/cluster');
 
 const cluster = new Cluster();
 
+const port = 3000;
 
 // console.log("isMaster",cluster.isMaster, process.pid);
 if (cluster.isMaster) {
-	const worker1 = cluster.fork();
-	const worker2 = cluster.fork();
-
 
 	cluster.on('cluster.ready', (pid) => {
-		console.log('MASTER. cluster.ready', process.pid, pid);
 	});
 
-	worker1.on('worker.ready', () => {
-		console.log('MASTER. worker1.ready');
-		cluster.kill(worker1.pid);
+	const worker = cluster.fork();
+	worker.on('worker.ready', () => {
+		// worker.kill();
+	});
+	worker.on('worker.stop', () => {
 	});
 
-	worker1.on('worker.stop', () => {
-		console.log('MASTER. worker1.stop', 'Самое страшное, это терять детей.');
-	});
-
-	worker2.on('worker.ready', () => {
-		console.log('MASTER. worker2.ready');
-		cluster.setAsMaster(worker2.pid);
-	});
 } else {
 	cluster.on('cluster.ready', (pid) => {
-		console.log('WORKER. cluster.ready', process.pid, pid);
+		startExpress();
 	});
 
-
 	cluster.on('cluster.setmaster', (pid) => {
-		console.log('WORKER. cluster.setmaster', process.pid, pid, 'Упс, насяльника сменилась');
 	});
 
 	cluster.on('cluster.isMaster', (pid) => {
-		console.log('WORKER. cluster.isMaster', process.pid, pid, 'Ураааа, я главный)))');
-		// cluster.fork();
 	});
 
 	cluster.on('cluster.stop', (pid) => {
-		console.log('WORKER. cluster.stop', process.pid, pid, 'А ведь я еще так молод!!!');
 	});
 }
 
+function startExpress() {
+	// создаем объект нашего приложения
+	const app = express();
+
+	// подключаем к нему модуль защиты
+	// app.use(helmet());
+
+	// подключаем к нему обработку запросов к ститическому контенту
+	// лежащему в папке /public
+	app.use(express.static(path.join(__dirname, 'public')));
+
+
+
+
+
+	// далее обработчики срабатывающие если ни один из
+	// предидущих обработчиков не вернул ничего и вызвал next()
+
+	// catch 404 and forward to error handler
+	app.use(function(req, res, next) {
+	  var err = new Error('Not Found');
+	  err.status = 404;
+	  next(err);
+	});
+
+	// error handler
+	app.use(function(err, req, res, next) {
+	  // set locals, only providing error in development
+	  res.locals.message = err.message;
+	  res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+	  // render the error page
+	  res.status(err.status || 500);
+	  res.send('error');
+	  //res.render('error');
+	});
+
+	app.listen(port, () => {
+	  console.log(`Example app listening at port: ${port}`)
+	});
+}
