@@ -37,7 +37,7 @@ class Client extends Emitter {
         this.socket = net.createConnection({
             path: tools.socketFileNameByPid(this.pid)
         }, () => {
-            console.log('Process', process.pid, 'connected to server', this.pid);
+            // console.log('Process', process.pid, 'connected to server', this.pid);
             this.emit('network.ready', {
                 from: process.pid,
                 to: this.pid,
@@ -45,7 +45,7 @@ class Client extends Emitter {
         });
 
         this.socket.on('end', () => {
-            console.log('Process', process.pid, 'disconnected from server', this.pid);
+            // console.log('Process', process.pid, 'disconnected from server', this.pid);
         });
 
         this.socket.on('error', () => {

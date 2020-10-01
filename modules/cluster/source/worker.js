@@ -16,6 +16,7 @@ class Worker extends Emitter {
      */
     constructor(pid) {
         super();
+        this.isReady = false;
 
         if (pid) {
             this.pid = pid;

@@ -44,7 +44,7 @@ class Server extends Emitter {
             setTimeout(() => {
                 this.server.close();
                 this.server.listen(this.descriptor, () => {
-                    console.log('Process', process.pid, 'opened server on', this.server.address());
+                    // console.log('Process', process.pid, 'opened server on', this.server.address());
                     this.emit('network.ready');
                 });
             }, 1000);
@@ -52,7 +52,7 @@ class Server extends Emitter {
 
         this.server.listen(this.descriptor, () => {
 
-            console.log('Process', process.pid, 'opened server on', this.server.address());
+            // console.log('Process', process.pid, 'opened server on', this.server.address());
             this.emit('network.ready');
         });
 
