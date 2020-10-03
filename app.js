@@ -101,12 +101,14 @@ function storeWorker(pid, opt = {}) {
 	if (!pid) return;
 	const worker = cluster.getWorker(pid);
 	const current = workers[pid] || {};
+	const alive = (typeof opt.alive == 'boolean') ? opt.alive : worker ? true : false;
 	workers[pid] = {
 		pid: pid,
 		generated: opt.generated || current.generated || 0,
 		processed: opt.processed || current.processed || 0,
-		status: opt.status || (worker ? worker.isMaster ? 'master' : 'worker' : 'death'),
-		alive: (typeof opt.alive == 'boolean') ? opt.alive : worker ? true : false
+		status: opt.status ? opt.status : worker.isMaster ? 'master' : 'worker',
+
+		alive: alive
 	};
 }
 
@@ -138,8 +140,19 @@ function start(cluster) {
 		reply("cluster.info", info);
 	});
 
+	let isProcessTerminated = false;
 	// клиент хочет когото убить
 	ws.on("worker.kill", (reply, pid) => {
+
+		if(isProcessTerminated){
+			reply('message', 'попробуйте убить процесс через несколько секунд');
+			return;
+		} 
+
+		isProcessTerminated=true;
+		setTimeout(()=>{
+			isProcessTerminated=false;
+		},10000);
 
 		const list = cluster.getWorkers();
 		if (list.length == 1) {
@@ -162,7 +175,7 @@ function start(cluster) {
 				nextMaster = list.filter((item) => item.pid != worker.pid)[0];
 
 
-				storeWorker(pid, { status: "death",	alive: false });
+				storeWorker(pid, { status: "worker",	alive: false });
 				storeWorker(nextMaster.pid, { status: "master",	alive: true });
 
 				ws.broadcast("worker.list", workers);
@@ -204,12 +217,28 @@ function start(cluster) {
 
 	});
 
+
+	let isProcessStarted = false;
 	// ну прям варкрафт какойто, ввел форк и слышишь: -ищу работу. или - будет сделано господин.))))
 	ws.on("worker.fork", (reply) => {
-		if (Object.keys(workers).length > 3) {
+		console.log('fork 01');
+		
+		if(isProcessStarted){
+			reply('message', 'попробуйте запустить процесс чуть позже');
+			return;
+		} 
+		console.log('fork 02');
+
+		isProcessStarted=true;
+		setTimeout(()=>{
+			isProcessStarted=false;
+		},5000);
+
+		if (Object.values(workers).filter(worker=>worker.alive).length > 7) {
 			reply('message', 'пожалейте мой компьютер');
 			return;
 		}
+		console.log('fork 03');
 
 		const worker = cluster.fork();
 
@@ -231,6 +260,8 @@ function start(cluster) {
 			const r = Math.floor(Math.random()*pids.length);
 			const pid = pids[r];
 			const worker = cluster.getWorker(pid);
+
+			if(!worker) return;
 
 			info.generated++;
 			workers[process.pid].generated++;

@@ -18,9 +18,8 @@ export default class WS extends EventEmitter{
 	constructor(url,timeout){
 		super();
 		this.url = url;
-		this.timeout = 0;
-		this.__timeout = timeout||30000;
-		this.caсhe =[];
+		this.timeout = timeout||30000;
+		// this.caсhe =[];
 		this.isConnect = false;
 		this.connect();
 	}
@@ -56,14 +55,13 @@ export default class WS extends EventEmitter{
 			this.init();
 		});			
 		this.connection.on("open", ()=>{
-			this.timeout = this.__timeout;
 			this.isConnect = true;
 			this.emit("connection")
 			console.log("Подключился к", this.url);
-			this.caсhe.forEach(data=>{
-				this.connection.send(data);
-			});
-			this.caсhe = [];
+			// this.caсhe.forEach(data=>{
+			// 	this.connection.send(data);
+			// });
+			// this.caсhe = [];
 		});
 		this.connection.on("message", (event)=>{
 			try {
@@ -89,7 +87,7 @@ export default class WS extends EventEmitter{
 		const string = JSON.stringify(json);
 
 		if(!this.isConnect || !this.connection){
-			this.caсhe.push(string);
+			// this.caсhe.push(string);
 			return;
 		}
 

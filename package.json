@@ -19,6 +19,7 @@
   "homepage": "https://github.com/lastuniverse/demo#readme",
   "dependencies": {
     "express": "^4.17.1",
-    "helmet": "^4.1.1"
+    "helmet": "^4.1.1",
+    "ws": "^7.3.1"
   }
 }
