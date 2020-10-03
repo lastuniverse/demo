@@ -66,12 +66,17 @@ class Client extends Emitter {
      * @param      {boolean|number|string|array|object}  data       передаваемые обработчику данные
      */
     send(eventName, ...data) {
-        this.socket.write(JSON.stringify({
-            from: process.pid,
-            to: this.pid,
-            eventName: eventName,
-            data: data
-        }) + '\r\n');
+        try {
+            const message = {
+                from: process.pid,
+                to: this.pid,
+                eventName: eventName,
+                data: data
+            };
+            this.socket.write(JSON.stringify(message) + '\r\n');
+        } catch(e) {
+            console.log(e);
+        }
     }
 }
 

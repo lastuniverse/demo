@@ -1,4 +1,5 @@
-const Emitter = require('events');
+// const Emitter = require('events'); // какието косяки с событиями((((
+const Emitter = require('../../tools/eventemitter.js');
 const network = require('../../network');
 const tools = require('./tools.js');
 
@@ -17,6 +18,7 @@ class Worker extends Emitter {
     constructor(pid) {
         super();
         this.isReady = false;
+        this.isMaster = false;
 
         if (pid) {
             this.pid = pid;
@@ -33,9 +35,9 @@ class Worker extends Emitter {
         // подключились к IPC серверу процесса
         this.client.once('network.ready', () => { // =[2,7,11,19]=
             this.isReady=true;
-            
             setTimeout(()=>{
                 this.emit('service.ready'); // =[3]=
+                this.emit('worker.ready',true);
             },1000);
 
             if (!pid) {
@@ -49,7 +51,9 @@ class Worker extends Emitter {
      * Отправить связанному удаленному процессу сообщение (у объекта модуля Cluster в удаленном процессе будут вызваны обработчики одноименного события)
      *
      * @param      {string}  eventName  имя события
-     * @param      {boolean|number|string|array|object}  data       передаваемые данные
+     * @param      {Array}   data       любое количество передаваемых параметров.
+     *                                  каждый из параметров должен соответсвовать условию: 
+     *                                  проходить процедуру JSON.parse(JSON.stringify(param)) без потери данных и ошибок
      */
     send(eventName, ...data) {
         this.client.send(eventName, ...data);
@@ -59,18 +63,24 @@ class Worker extends Emitter {
      * Отправить процессу сигнал signal.
      *
      * @param      {string}  [signal='SIGINT']  Отправляемый сигнал (SIGINT или SIGTERM)
+     * @param      {}        data       с убиваемым можно попрощаться, передав ему любое количество параметров.
+     *                                  каждый из параметров должен соответсвовать условию: 
+     *                                  проходить процедуру JSON.parse(JSON.stringify(param)) без потери данных и ошибок
      */
-    kill(signal = 'SIGINT') {
-        this.__broadcast('service.signal', this.pid, signal);
+    kill(signal = 'SIGINT', ...data) {
+        this.__broadcast('service.signal', this.pid, signal, ...data);
     }
 
     /**
      * Назначить процесс pid мастером
      *
      * @param      {string|number}  pid         ID процесса
+     * @param      {}        data       можно передать любое количество параметров.
+     *                                  каждый из параметров должен соответсвовать условию: 
+     *                                  проходить процедуру JSON.parse(JSON.stringify(param)) без потери данных и ошибок
      */
-    setAsMaster() {
-        this.__broadcast('service.set.as.master', this.pid);
+    setAsMaster(...data) {
+        this.__broadcast('service.set.as.master', this.pid, ...data);
     }    
 }
 

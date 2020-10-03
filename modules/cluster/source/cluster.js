@@ -1,4 +1,5 @@
-const Emitter = require('events');
+// const Emitter = require('events'); // какието косяки с событиями((((
+const Emitter = require('../../tools/eventemitter.js');
 const network = require('../../network');
 const Worker = require('./worker');
 const tools = require('./tools.js');
@@ -22,6 +23,12 @@ class Cluster extends Emitter {
         this.server = new network.Server(); // =[0,6]=
 
         // запущен сервер
+        this.server.on('service.message', (message) => { // =[0,6]=
+            if (!message || !message.eventName) return;
+            this.emit(message.eventName, ...message.data);
+        });
+
+        // запущен сервер
         this.server.on('network.ready', () => { // =[0,6]=
             this.fork(process.pid); // =[1]=
         });
@@ -40,14 +47,14 @@ class Cluster extends Emitter {
         });
 
         // какойто из процессов был убит
-        this.server.on('service.signal', (pid, signal) => {
+        this.server.on('service.signal', (pid, signal,...data) => {
             if (process.pid == pid) {
                 this.isKilled = true;
-                this.workers[pid].emit('worker.stop');
-                this.emit('cluster.stop',process.pid);
+                this.workers[pid].emit('worker.stop',...data);
+                this.emit('cluster.stop', ...data);
                 process.kill(process.pid, signal);
             } else if (this.workers[pid]) {
-                this.workers[pid].emit('worker.stop');
+                this.workers[pid].emit('worker.stop',...data);
                 this.workers[pid].client.emit('network.end');
                 delete this.workers[pid];
             }
@@ -55,15 +62,25 @@ class Cluster extends Emitter {
         });
 
         // установлен новый мастер
-        this.server.on('service.set.as.master', (pid) => {
-            if (process.pid == pid) {
-                this.isMaster = true;
-                this.emit('cluster.isMaster',process.pid);
-            } else if (this.workers[pid]) {
-                this.isMaster = false;
+        this.server.on('service.set.as.master', (pid, ...data) => {
+            console.log('service.set.as.master', pid);
+            if(this.workers[pid]){
+                if (process.pid == pid) {
+                    this.isMaster = true;
+                    this.emit('cluster.isMaster',...data);
+                } else if (this.workers[pid]) {
+                    this.isMaster = false;
+                }
+
+                this.master = this.workers[pid];
+                
+                this.getWorkers().forEach((worker)=>{
+                    worker.isMaster = false;
+                });
+                this.workers[pid].isMaster = true;
+                this.emit('cluster.setmaster', pid, ...data);
             }
-            this.master = this.workers[pid];
-            this.emit('cluster.setmaster', pid);
+
         });
 
 
@@ -89,18 +106,23 @@ class Cluster extends Emitter {
      * @return     {Worker}  инстанс класса Worker, подключенный к управляемому процессу
      */
     fork(pid) {
-
         if(!pid && !this.isMaster) return console.warn('создавать дочерние процессы разрешено только мастерпроцессу');
-
         const worker = new Worker(pid);
+
+;
+        
+        // ээх, не удержался. неявно добавлять методы и свойства к объектам это ... ай-ай-ай))))
+        if(this.isMaster && worker.pid == process.pid) worker.isMaster = true;
+        worker.__broadcast = this.broadcast.bind(this);
         this.workers[worker.pid] = worker;
 
-        // ээх, не удержался. неявно добавлять методы к объектам это ... ай-ай-ай))))
-        worker.__broadcast = this.broadcast.bind(this);
+
+
+
 
 
         // проверка на наличие воркеров, еще не подключившихся к своим процессам
-        const isAllWorkerReady = () => this.getWorkers().every(worker => worker.isReady)
+        const isAllWorkerReady = () => this.getWorkers().every(item => item.isReady)
 
         const waitWorker = () => {
             worker.once('service.ready', () => {
@@ -110,11 +132,13 @@ class Cluster extends Emitter {
                     waitWorker();
                 }else{
                     // этот блок сработает только для воркеров, созданных скопом при запуске мастерпроцесса
+
                     if (!this.isReady) {
-                        this.isReady = true;
+                        // console.log('упс 1', worker.pid, Object.keys(this.workers));
+                        // console.log('упс 4', worker.pid);
                         this.emit('cluster.ready', process.pid);
-                        this.emit('service.cluster.ready', process.pid);
                     }
+                    this.isReady = true;
                 }
             });
         }
@@ -122,10 +146,7 @@ class Cluster extends Emitter {
         // ждем готовности всех запущенных воркеров
         waitWorker();
 
-        this.once('service.cluster.ready', ()=>{
-            // это тоже должно сработать только 1 раз для каждого из багов
-            worker.emit('worker.ready');
-        });
+
 
 
 
@@ -159,14 +180,31 @@ class Cluster extends Emitter {
     }
 
     /**
+     * выдает воркер по его pid
+     *
+     * @return     {Array[Worker]}  массив действующих воркеров
+     */
+    getWorker(pid) {
+        return this.workers[pid];
+    }
+
+    send(pid,eventName, ...data) {
+        const worker = this.getWorker(pid);
+        if(worker) worker.send(eventName, ...data);
+    }
+
+    /**
      * Отправить процессу pid сигнал signal.
      *
      * @param      {string|number}  pid         ID процесса
      * @param      {string}  [signal='SIGINT']  Отправляемый сигнал (SIGINT или SIGTERM)
+     * @param      {}        data       с убиваемым можно попрощаться, передав ему любое количество параметров.
+     *                                  каждый из параметров должен соответсвовать условию: 
+     *                                  проходить процедуру JSON.parse(JSON.stringify(param)) без потери данных и ошибок
      */
-    kill(pid, signal = 'SIGINT') {
+    kill(pid, signal = 'SIGINT', ...data) {
         setTimeout(()=>{
-            this.broadcast('service.signal', pid, signal);
+            this.broadcast('service.signal', pid, signal, ...data);
         },3000);
     }
 
@@ -174,10 +212,13 @@ class Cluster extends Emitter {
      * Назначить процесс pid мастером
      *
      * @param      {string|number}  pid         ID процесса
+     * @param      {}        data       можно передать любое количество параметров.
+     *                                  каждый из параметров должен соответсвовать условию: 
+     *                                  проходить процедуру JSON.parse(JSON.stringify(param)) без потери данных и ошибок
      */
-    setAsMaster(pid) {
+    setAsMaster(pid, ...data) {
         if (!this.workers[pid]) return
-        this.broadcast('service.set.as.master', pid);
+        this.broadcast('service.set.as.master', pid, ...data);
     }
 };
 

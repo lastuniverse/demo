@@ -53,7 +53,7 @@ function Storage(...options) {
         return console.warn(`Do not find '${defaults.type}' implementation of Storage`);
     }
 
-    const storrage = new StorageImplementation(defaults.options);
+    const storrage = new StorageImplementation(...options);
     return storrage;
 }
 

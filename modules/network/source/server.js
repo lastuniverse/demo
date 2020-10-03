@@ -29,10 +29,15 @@ class Server extends Emitter {
                 data.toString()
                     .split(/\r\n/)
                     .forEach((text) => {
-                        if (!text) return
-                        const message = JSON.parse(text);
-                        if (!message || !message.eventName) return;
-                        this.emit(message.eventName, ...message.data);
+                        try {
+                            if (!text) return
+                            const message = JSON.parse(text);
+                            if (!message || !message.eventName) return;
+                            this.emit(message.eventName, ...message.data);
+                            this.emit("service.message", message);
+                        } catch(e) {
+                            console.log(e);
+                        }
 
                     });
             });
