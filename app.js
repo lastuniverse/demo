@@ -34,7 +34,7 @@ let info = {
 	processed: 0,
 };
 
-// помогает запускать и останавливать генерацию данных для обработки (начиная с 224 строки и до конца генерация и обработка данных)
+// помогает запускать и останавливать генерацию данных для обработки (начиная с 252 строки и до конца генерация и обработка данных)
 class DataProcess{
 	constructor(){
 		this.isStarted = false;
@@ -112,7 +112,6 @@ function storeWorker(pid, opt = {}) {
 	};
 }
 
-
 // эта функция вызывается процессом, который становится мастером
 // - запускает express в связке websocker сервером
 // - обрабатывает события от интерфейса
@@ -170,10 +169,11 @@ function start(cluster) {
 			if (pid === process.pid) {
 				reply('message', 'Эхх, подстрелили командира?');
 				
+				// прекращаем генерацию данных
 				dataProcess.stop();
 
+				// 	выбираем процесс для передачи ему мАстерских полномочий
 				nextMaster = list.filter((item) => item.pid != worker.pid)[0];
-
 
 				storeWorker(pid, { status: "worker",	alive: false });
 				storeWorker(nextMaster.pid, { status: "master",	alive: true });
@@ -211,7 +211,7 @@ function start(cluster) {
 		}
 	});
 
-	// 	нет, хотябы одного бойца надо оставить
+	// 	нет, хотя бы одного бойца надо оставить
 	ws.on("worker.killall", (reply) => {
 		reply('message', 'мы так не договаривались))))');
 
@@ -219,7 +219,7 @@ function start(cluster) {
 
 
 	let isProcessStarted = false;
-	// ну прям варкрафт какойто, ввел форк и слышишь: -ищу работу. или - будет сделано господин.))))
+	// принимаем от интерфейса команду на создание дочернего процесса
 	ws.on("worker.fork", (reply) => {
 		console.log('fork 01');
 		
@@ -241,7 +241,7 @@ function start(cluster) {
 		console.log('fork 03');
 
 		const worker = cluster.fork();
-
+        // дочерний процесс готов (запустил IPC сервер, подключился к мастеру а мастер подключился к дочернему процессу)
 		worker.on("worker.ready", () => {
 			storeWorker(worker.pid);
 			ws.broadcast("worker.list", workers);
@@ -265,24 +265,27 @@ function start(cluster) {
 
 			info.generated++;
 			workers[process.pid].generated++;
+
+			// отправляем выбранному процессу данные на обработку 
 			worker.send("process.data", process.pid, number);
 	
 			// пишем в лог сгенерированныечисла
 			fs.write(fd, `${number} generated for ${pid}\n`,()=>{});
 			// log.generated[process.pid].push(number);
-		},0);
+		},500);
 
 		// 	кидаем инфу браузерным клиентам
 		dataProcess.start(()=>{
 			ws.broadcast("worker.list", workers);
 			ws.broadcast("cluster.info", info);		
-		},5000);
+		},500);
 
 	},5000);
 
 }
 
-// эти обработчики висят вне зависимости от мастер/воркер 
+// эти обработчики предназначены для обработки данных и висят вне зависимости от мастер/воркер
+// т.е. данные могут обрабатывать и мастер и воркеры
 
 // если мы генерировали данные нам и учитывать их)
 cluster.on("process.data.ready", (pid, number)=>{
