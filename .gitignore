@@ -41,6 +41,7 @@ jspm_packages
 bugs
 __trash
 store/*.json
+tsconfig.json
 
 # vs code
 /.vscode
