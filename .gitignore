@@ -42,6 +42,8 @@ bugs
 __trash
 store/*.json
 tsconfig.json
+/*.sh
+.eslintignore
 
 # vs code
 /.vscode
