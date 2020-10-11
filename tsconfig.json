@@ -4,7 +4,7 @@
         "sourceMap": true,
         "noImplicitAny": true,
         "module": "commonjs",
-        "target": "es10",
+        "target": "ES2020",
         "jsx": "react",
         "allowJs": true,
         "typeRoots": [
