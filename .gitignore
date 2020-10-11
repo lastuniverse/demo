@@ -43,5 +43,5 @@ __trash
 store/*.json
 
 # vs code
-.vscode
-*.code-workspace
+/.vscode
+/*.code-workspace

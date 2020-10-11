@@ -62,5 +62,6 @@ for_me
 .node_repl_history
 
 #vs code
-.vscode
+*.vscode
 *.code-workspace
+
