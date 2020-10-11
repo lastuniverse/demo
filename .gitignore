@@ -41,3 +41,7 @@ jspm_packages
 bugs
 __trash
 store/*.json
+
+# vs code
+.vscode
+*.code-workspace
