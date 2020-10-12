@@ -50,7 +50,7 @@ function storeWorker(pid, opt = {}) {
 }
 
 // помогает запускать и останавливать генерацию данных для обработки
-// (начиная с 257 строки и до конца генерация и обработка данных)
+// (начиная с 205 и до 255 строки - генерация и обработка данных)
 class DataProcess {
   constructor() {
     this.isStarted = false;
@@ -71,55 +71,13 @@ class DataProcess {
 }
 const dataProcess = new DataProcess(1000);
 
-if (cluster.isMaster) {
-  // данный блок кода будет выполнен единожды, в мастер процессе при первом его запуске
-  // при передачи прав мастерпроцесса воркерам, данный блок в воркере выполнен не будет
-  start(cluster);
-
-  // запускаем воркеры (количество указанно в конфиге ./config.json)
-  for (let i = 0; i < config.workers; i++) {
-    cluster.fork();
-  }
-
-  // ожидаем от кластера подтверждения о готовности (запущен ipc сервер
-  // на мастере, все воркеры, запускаемые в этой секции готовы,
-  // запустили свои IPC сервера, подключились к мастерпроцессу,
-  // мастер процесс подключился к каждому из воркеров)
-  cluster.on('cluster.ready', (pid) => {
-    // производим первичную инициализацию клобального ассоциативного массива workers
-    cluster.getWorkers().forEach((worker) => {
-      storeWorker(worker.pid);
-    });
-  });
-} else {
-  // данный блок кода будет выполнен единожды, в в каждом запускаемом точернем процессе
-
-  cluster.on('cluster.setmaster', (pid) => {});
-
-  cluster.on('cluster.ready', (pid) => {});
-
-  // перед тем как передать мастера, сервер кидает инфу
-  cluster.on('task.fullinfo', (w, i, pid) => {
-    workers = w;
-    info = i;
-    cluster.send(pid, 'task.isReady', true);
-  });
-
-  // получаем мастера
-  cluster.on('cluster.isMaster', (from) => {
-    start(cluster);
-    cluster.send(from, 'task.isMaster', true);
-    // пишем в лог
-    fs.write(fd, `set as master from ${from}\n`, () => {});
-  });
-}
-
-// эта функция вызывается процессом, который становится мастером
-// - запускает express в связке websocker сервером
-// - обрабатывает события от интерфейса
-// - запускает генерацию и рассылку рандомных данных
-//
-function start(cluster) {
+/**
+ * эта функция вызывается процессом, который становится мастером
+ * - запускает express в связке websocker сервером
+ * - обрабатывает события от интерфейса
+ * - запускает генерацию и рассылку рандомных данных
+ */
+function start() {
   const ws = startWebApp(path.join(__dirname, 'public'), config.port);
 
   // далее в основном обработка событий, названия которых говорят сами за себя
@@ -153,7 +111,7 @@ function start(cluster) {
     }, 10000);
 
     const list = cluster.getWorkers();
-    if (list.length == 1) {
+    if (list.length === 1) {
       reply('message', 'Извините, но я последний боец в этом окопе!!!');
       return;
     }
@@ -170,10 +128,10 @@ function start(cluster) {
       dataProcess.stop();
 
       // выбираем процесс для передачи ему мАстерских полномочий
-      const nextMaster = list.filter((item) => item.pid != worker.pid)[0];
+      const nextMaster = list.filter((item) => item.pid !== worker.pid)[0];
 
-      storeWorker(pid, { status: 'worker',	alive: false });
-      storeWorker(nextMaster.pid, { status: 'master',	alive: true });
+      storeWorker(pid, { status: 'worker', alive: false });
+      storeWorker(nextMaster.pid, { status: 'master', alive: true });
 
       ws.broadcast('worker.list', workers);
 
@@ -190,8 +148,8 @@ function start(cluster) {
       });
 
       // перед смертью чтото делаем, притом синхронно (специфика выхода по process.exit() )
-      cluster.on('cluster.stop', (pid) => {
-        fs.write(fd, `kill from ${pid}\n`, () => {});
+      cluster.on('cluster.stop', (fromPid) => {
+        fs.write(fd, `kill from ${fromPid}\n`, () => {});
         fs.closeSync(fd);
         // process.exit();
         // process.kill(process.pid);
@@ -245,13 +203,13 @@ function start(cluster) {
 
   // даем время запустится web серверу
   setTimeout(() => {
-    // 	генерируем и рассылаем данные
+    // генерируем и рассылаем данные
     dataProcess.start(() => {
       const number = Math.floor(Math.random() * 1000);
       const pids = Object.values(workers)
         .filter((worker) => worker.alive)
         .map((worker) => worker.pid);
-      if (pids.length == 0) return;
+      if (pids.length === 0) return;
       const r = Math.floor(Math.random() * pids.length);
       const pid = pids[r];
       const worker = cluster.getWorker(pid);
@@ -281,7 +239,7 @@ function start(cluster) {
 // т.е. данные могут обрабатывать и мастер и воркеры
 
 // если мы генерировали данные нам и учитывать их)
-cluster.on('process.data.ready', (pid, number) => {
+cluster.on('process.data.ready', (pid) => {
   info.processed++;
   workers[pid].processed++;
 });
@@ -293,5 +251,48 @@ cluster.on('process.data', (pid, number) => {
   // log.processed.push(number);
 
   // подтверждаем обработку
-  cluster.send(pid, 'process.data.ready', process.pid, number);
+  cluster.send(pid, 'process.data.ready', process.pid);
 });
+
+if (cluster.isMaster) {
+  // данный блок кода будет выполнен единожды, в мастер процессе при первом его запуске
+  // при передачи прав мастерпроцесса воркерам, данный блок в воркере выполнен не будет
+  start(cluster);
+
+  // запускаем воркеры (количество указанно в конфиге ./config.json)
+  for (let i = 0; i < config.workers; i++) {
+    cluster.fork();
+  }
+
+  // ожидаем от кластера подтверждения о готовности (запущен ipc сервер
+  // на мастере, все воркеры, запускаемые в этой секции готовы,
+  // запустили свои IPC сервера, подключились к мастерпроцессу,
+  // мастер процесс подключился к каждому из воркеров)
+  cluster.on('cluster.ready', (pid) => {
+    // производим первичную инициализацию клобального ассоциативного массива workers
+    cluster.getWorkers().forEach((worker) => {
+      storeWorker(worker.pid);
+    });
+  });
+} else {
+  // данный блок кода будет выполнен единожды, в в каждом запускаемом точернем процессе
+
+  cluster.on('cluster.setmaster', (pid) => {});
+
+  cluster.on('cluster.ready', (pid) => {});
+
+  // перед тем как передать мастера, сервер кидает инфу
+  cluster.on('task.fullinfo', (w, i, pid) => {
+    workers = w;
+    info = i;
+    cluster.send(pid, 'task.isReady', true);
+  });
+
+  // получаем мастера
+  cluster.on('cluster.isMaster', (from) => {
+    start(cluster);
+    cluster.send(from, 'task.isMaster', true);
+    // пишем в лог
+    fs.write(fd, `set as master from ${from}\n`, () => {});
+  });
+}
