@@ -1,3 +1,5 @@
+/* eslint-disable no-console */
+/* eslint-disable no-multi-assign */
 const net = require('net');
 const Emitter = require('events');
 const tools = require('./tools.js');
@@ -9,66 +11,58 @@ const processEvents = require('../../tools/process-events.js');
  * @class      Server (name)
  */
 class Server extends Emitter {
+  constructor() {
+    super();
 
-    constructor() {
-        super();
+    this.descriptor = tools.socketFileNameByPid(process.pid);
 
-        this.descriptor = tools.socketFileNameByPid(process.pid);
+    this.startServer();
+  }
 
-        this.startServer();
-    }
-
-    /**
+  /**
      * Запускает сервер и устанавливает минимум необходимых обработчиков, парсит входящий поток
      * данных и генерирует из них события
      */
-    startServer() {
+  startServer() {
+    this.server = net.createServer((socket) => {
+      socket.on('data', (data) => {
+        data.toString()
+          .split(/\r\n/)
+          .forEach((text) => {
+            try {
+              if (!text) return;
+              const message = JSON.parse(text);
+              if (!message || !message.eventName) return;
+              this.emit(message.eventName, ...message.data);
+              this.emit('service.message', message);
+            } catch (e) {
+              console.log(e);
+            }
+          });
+      });
+    });
 
-        this.server = net.createServer(socket => {
-            socket.on('data', (data) => {
-                data.toString()
-                    .split(/\r\n/)
-                    .forEach((text) => {
-                        try {
-                            if (!text) return
-                            const message = JSON.parse(text);
-                            if (!message || !message.eventName) return;
-                            this.emit(message.eventName, ...message.data);
-                            this.emit("service.message", message);
-                        } catch(e) {
-                            console.log(e);
-                        }
+    this.server.on('error', (error) => {
+      if (error.code !== 'EADDRINUSE') throw error;
 
-                    });
-            });
-        });
-
-        this.server.on('error', (error) => {
-            if (error.code !== 'EADDRINUSE') throw error;
-
-            setTimeout(() => {
-                this.server.close();
-                this.server.listen(this.descriptor, () => {
-                    // console.log('Process', process.pid, 'opened server on', this.server.address());
-                    this.emit('network.ready');
-                });
-            }, 1000);
-        });
-
+      setTimeout(() => {
+        this.server.close();
         this.server.listen(this.descriptor, () => {
-
-            // console.log('Process', process.pid, 'opened server on', this.server.address());
-            this.emit('network.ready');
+          // console.log('Process', process.pid, 'opened server on', this.server.address());
+          this.emit('network.ready');
         });
+      }, 1000);
+    });
 
-        processEvents.on('beforeExit', ()=>{
-            this.server.close();
-        });
+    this.server.listen(this.descriptor, () => {
+      // console.log('Process', process.pid, 'opened server on', this.server.address());
+      this.emit('network.ready');
+    });
 
-    }
-
-
-
-};
+    processEvents.on('beforeExit', () => {
+      this.server.close();
+    });
+  }
+}
 
 exports = module.exports = Server;
