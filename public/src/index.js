@@ -34,7 +34,7 @@ class Modal extends React.Component {
   }
         
   renderMessage(messages,i){
-    return <p key={i}>{messages}</p>;
+    return <div key={i}>{messages}</div>;
   }
 
   renderMessages(){
