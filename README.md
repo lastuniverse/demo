@@ -8,5 +8,7 @@
 и кол-во сгенерированных/обработанных сообщений (всего и отдельно для каждого node). Добавить возможность выключать любой из node через UI.
 
 [моя реализация (web интерфейс)](http://lastuniverse.ru/)
+
 [моя реализация (код клиентской части)](https://github.com/lastuniverse/demo/tree/master/public/src)
+
 [моя реализация (код серверной части)](https://github.com/lastuniverse/demo)
