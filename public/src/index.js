@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import WS from './js/class.websocket.js';
 
-var ws = new WS('ws:\/\/lastuniverse.ru:80/cluster',5000); // хайлайтер косячит поэтому сделал так \/\/
+var ws = new WS('ws:\\lastuniverse.ru:80/cluster',5000);
 
 // ========================================
 

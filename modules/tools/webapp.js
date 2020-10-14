@@ -23,7 +23,8 @@ function startWebApp(piblicPath, port) {
 
   // catch 404 and forward to error handler
   app.use((req, res, next) => {
-    const err = new Error('Not Found');
+    const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const err = new Error(`Not Found. ${ip}, ${req.hostname}, ${req.path}, ${req.params}`);
     err.status = 404;
     next(err);
   });
