@@ -16,7 +16,11 @@
 - Для кластеризации использован модуль [child_process](https://nodejs.org/api/child_process.html)
 
 [web интерфейс](https://work.lastuniverse.ru/)
+
 [реализация модуля кластеризации](https://github.com/lastuniverse/demo/tree/master/modules/cluster)
+
 [реализация IPC чере TCP](https://github.com/lastuniverse/demo/tree/master/modules/network)
+
 [код серверной части](https://github.com/lastuniverse/demo)
+
 [код клиентской части](https://github.com/lastuniverse/demo/tree/master/public/src)
