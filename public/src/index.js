@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import './index.css';
 import WS from './js/class.websocket.js';
 
-var ws = new WS('ws:\\lastuniverse.ru:80/cluster',5000);
+var ws = new WS('wss://work.lastuniverse.ru/cluster',5000);
 
 // ========================================
 
@@ -34,7 +34,7 @@ class Modal extends React.Component {
   }
         
   renderMessage(messages,i){
-    return <div key={i}>{messages}</div>;
+    return <p key={i}>{messages}</p>;
   }
 
   renderMessages(){
