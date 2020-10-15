@@ -15,8 +15,8 @@
 - В качестве IPC использованы сокеты типа [unix домен](https://ru.wikipedia.org/wiki/%D0%A1%D0%BE%D0%BA%D0%B5%D1%82_%D0%B4%D0%BE%D0%BC%D0%B5%D0%BD%D0%B0_Unix), реализованн на возможностях модуля [Net](https://nodejs.org/api/net.html)
 - Для кластеризации использован модуль [child_process](https://nodejs.org/api/child_process.html)
 
-[моя реализация (web интерфейс)](http://lastuniverse.ru/)
-
-[моя реализация (код клиентской части)](https://github.com/lastuniverse/demo/tree/master/public/src)
-
-[моя реализация (код серверной части)](https://github.com/lastuniverse/demo)
+[web интерфейс](https://work.lastuniverse.ru/)
+[реализация модуля кластеризации](https://github.com/lastuniverse/demo/tree/master/modules/cluster)
+[реализация IPC чере TCP](https://github.com/lastuniverse/demo/tree/master/modules/network)
+[код серверной части](https://github.com/lastuniverse/demo)
+[код клиентской части](https://github.com/lastuniverse/demo/tree/master/public/src)
