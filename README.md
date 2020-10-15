@@ -19,7 +19,7 @@
 
 [реализация модуля кластеризации](https://github.com/lastuniverse/demo/tree/master/modules/cluster)
 
-[реализация IPC чере TCP](https://github.com/lastuniverse/demo/tree/master/modules/network)
+[реализация IPC через TCP](https://github.com/lastuniverse/demo/tree/master/modules/network)
 
 [код серверной части](https://github.com/lastuniverse/demo)
 
